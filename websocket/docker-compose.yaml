@@ -1,0 +1,9 @@
+services:
+  websocket-server:
+    build:
+      context: ./websocket-server
+    container_name: websocket-server
+    ports:
+      - "4000:4000"
+    environment:
+      PORT: 4000

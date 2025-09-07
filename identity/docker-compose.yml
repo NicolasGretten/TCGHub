@@ -1,0 +1,37 @@
+services:
+  hydra-migrate:
+    image: oryd/hydra:v2.2.0
+    environment:
+      - DSN=postgres://hydra:secret@db:5432/hydra?sslmode=disable
+    command: migrate sql -e --yes
+    depends_on:
+      - db
+
+  hydra:
+    image: oryd/hydra:v2.2.0
+    ports:
+      - "4444:4444" # Public port
+      - "4445:4445" # Admin port
+    environment:
+      - DSN=postgres://hydra:secret@db:5432/hydra?sslmode=disable
+      - URLS_SELF_ISSUER=http://localhost:4444/
+      - URLS_LOGIN=http://localhost:58846
+      - URLS_CONSENT=http://localhost:58846
+      - SECRETS_SYSTEM=youreallyshouldchangeme
+      - LOG_LEAK_SENSITIVE_VALUES=true
+      - DEV=true
+    depends_on:
+      - db
+
+  db:
+    image: postgres:15
+    restart: always
+    environment:
+      - POSTGRES_USER=hydra
+      - POSTGRES_PASSWORD=secret
+      - POSTGRES_DB=hydra
+    volumes:
+      - db_data:/var/lib/postgresql/data
+
+volumes:
+  db_data:

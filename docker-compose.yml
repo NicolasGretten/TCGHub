@@ -1,0 +1,84 @@
+services:
+  db:
+    restart: always
+    container_name: "db"
+    image: mongo:7.0
+    command: [ "--replSet", "rs0", "--bind_ip_all", "--port", "27017" ]
+    ports:
+      - 27017:27017
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    healthcheck:
+      test: echo "try { rs.status() } catch (err) { rs.initiate({_id:'rs0',members:[{_id:0,host:'host.docker.internal:27017'}]}) }" | mongosh --port 27017 --quiet
+      interval: 5s
+      timeout: 30s
+      start_period: 0s
+      retries: 30
+    volumes:
+      - /data:/data/db
+
+  rabbitmq:
+    image: rabbitmq:3-management
+    container_name: rabbitmq
+    ports:
+      - "5672:5672"     # Port AMQP standard pour les clients
+      - "15672:15672"   # Port de l'interface Web (RabbitMQ Management UI)
+    environment:
+      RABBITMQ_DEFAULT_USER: admin
+      RABBITMQ_DEFAULT_PASS: admin
+    restart: always
+    networks:
+      - tcg-network
+      - db_default
+  
+  websocket-server:
+    build:
+      context: ./websocket/websocket-server
+    container_name: websocket-server
+    ports:
+      - "4000:4000"
+    environment:
+      PORT: 4000
+    networks:
+      - tcg-network
+      - db_default
+  
+  inventory:
+    image: node:latest
+    container_name: inventory
+    volumes:
+      - ./inventory:/app
+    working_dir: /app
+    command: sh -c "npm run dev"
+    ports:
+      - "3001:3001"
+    environment:
+      - NODE_ENV=development
+      - PORT=3001
+    networks:
+      - tcg-network
+      - db_default
+
+  cardmarket:
+    build:
+      context: ./cardmarketScrapper
+      dockerfile: Dockerfile
+    container_name: cardmarket
+    volumes:
+      - ./cardmarketScrapper:/app
+    working_dir: /app
+    command: sh -c "npm run dev"
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=development
+      - PORT=3000
+    networks:
+      - tcg-network
+      - db_default
+
+networks:
+  tcg-network:
+    driver: bridge
+  db_default:
+    external: true
